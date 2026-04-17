@@ -35,7 +35,7 @@ import {
   Area
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
-import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth';
+import {signInWithRedirect } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from './firebase';
 import { dbService } from './lib/db';
 import { aiService } from './lib/ai';
@@ -185,7 +185,7 @@ export default function App() {
         setUser({ uid: 'mock-user', email: 'demo@example.com', displayName: 'Demo User' } as any);
         return;
       }
-      await signInWithPopup(auth, googleProvider);
+      await signInWithRedirect(auth, googleProvider);
     } catch (e) {
       console.error("Login Error", e);
     }
