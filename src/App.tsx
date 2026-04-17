@@ -177,7 +177,7 @@ export default function App() {
       unsubMeds();
     };
   }, [user]);
-
+if (!isFirebaseConfigured())
   const handleLogin = async () => {
     try {
       if (!isFirebaseConfigured()) {
