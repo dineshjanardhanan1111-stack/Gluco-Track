@@ -1,0 +1,6 @@
+{
+  "name": "GlucoTrack",
+  "description": "A comprehensive app to monitor blood sugar levels, track meals, log medication doses, and share detailed health reports with doctors.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

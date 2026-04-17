@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile specific data",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "diabetesType": { "type": "string", "enum": ["Type 1", "Type 2", "Gestational", "Other"] },
+        "targetGlucoseMin": { "type": "number", "description": "Lower bound of target glucose range" },
+        "targetGlucoseMax": { "type": "number", "description": "Upper bound of target glucose range" },
+        "carbRatio": { "type": "number", "description": "Grams of carbs covered by 1 unit" },
+        "correctionFactor": { "type": "number", "description": "Blood sugar drop per 1 unit" },
+        "unit": { "type": "string", "enum": ["mg/dL", "mmol/L"] }
+      },
+      "required": ["uid", "email"]
+    },
+    "GlucoseReading": {
+      "title": "Glucose Reading",
+      "description": "A single blood sugar measurement",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "value": { "type": "number", "description": "Glucose level in mg/dL or mmol/L" },
+        "unit": { "type": "string", "enum": ["mg/dL", "mmol/L"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" },
+        "mealContext": { "type": "string", "description": "Context like Fasting, Before/After meal" }
+      },
+      "required": ["userId", "value", "timestamp"]
+    },
+    "MealLog": {
+      "title": "Meal Log",
+      "description": "Information about food intake",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "mealName": { "type": "string" },
+        "mealCategory": { "type": "string", "enum": ["Breakfast", "Lunch", "Dinner", "Snack", "Other"] },
+        "carbs": { "type": "number", "description": "Estimated carbohydrates in grams" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" },
+        "aiAnalysis": { "type": "string", "description": "AI generated insight about the meal" }
+      },
+      "required": ["userId", "mealName", "timestamp"]
+    },
+    "MedicationLog": {
+      "title": "Medication Log",
+      "description": "Record of medication doses",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "medicationName": { "type": "string" },
+        "medicationType": { "type": "string", "enum": ["Insulin (Bolus)", "Insulin (Basal)", "Oral", "Other"] },
+        "dose": { "type": "string", "description": "Dosage (e.g., 5 units, 1 tab)" },
+        "units": { "type": "number", "description": "Numeric units for insulin" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" }
+      },
+      "required": ["userId", "medicationName", "dose", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "glucose_readings": {
+      "schema": "GlucoseReading",
+      "description": "Global collection of blood sugar readings"
+    },
+    "meals": {
+      "schema": "MealLog",
+      "description": "Global collection of meal logs"
+    },
+    "medications": {
+      "schema": "MedicationLog",
+      "description": "Global collection of medication doses"
+    }
+  }
+}

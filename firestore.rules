@@ -1,0 +1,171 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required)
+//   - email: string (required)
+//   - displayName: string (optional)
+//   - diabetesType: string (required, enum)
+//   - targetGlucoseMin: number (optional)
+//   - targetGlucoseMax: number (optional)
+//   - carbRatio: number (optional)
+//   - correctionFactor: number (optional)
+//   - unit: string (optional)
+//
+// Collection: glucose_readings
+// Document ID: {readingId}
+// Fields:
+//   - userId: string (required) - UID of the owner
+//   - value: number (required) - blood sugar level
+//   - unit: string (optional) - mg/dL or mmol/L
+//   - timestamp: timestamp (required)
+//   - notes: string (optional, < 500 chars)
+//   - mealContext: string (optional, enum)
+//
+// Collection: meals
+// Document ID: {mealId}
+// Fields:
+//   - userId: string (required) - UID of the owner
+//   - mealName: string (required, < 100 chars)
+//   - mealCategory: string (optional, enum)
+//   - carbs: number (optional, positive)
+//   - timestamp: timestamp (required)
+//   - notes: string (optional, < 500 chars)
+//   - aiAnalysis: string (optional, < 2000 chars)
+//
+// Collection: medications
+// Document ID: {logId}
+// Fields:
+//   - userId: string (required) - UID of the owner
+//   - medicationName: string (required, < 100 chars)
+//   - medicationType: string (optional)
+//   - dose: string (required, < 50 chars)
+//   - units: number (optional)
+//   - timestamp: timestamp (required)
+//   - notes: string (optional, < 500 chars)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function userIdMatchesAuth() {
+      return request.resource.data.userId == request.auth.uid;
+    }
+
+    function isValidStringLength(data, field, maxLen) {
+      return !(field in data) || (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "dineshjanardhanan1111@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid is string &&
+             data.email is string &&
+             (!( 'targetGlucoseMin' in data ) || data.targetGlucoseMin is number) &&
+             (!( 'targetGlucoseMax' in data ) || data.targetGlucoseMax is number) &&
+             (!( 'diabetesType' in data ) || data.diabetesType in ['Type 1', 'Type 2', 'Gestational', 'Other']) &&
+             (!( 'carbRatio' in data ) || data.carbRatio is number) &&
+             (!( 'correctionFactor' in data ) || data.correctionFactor is number) &&
+             (!( 'unit' in data ) || data.unit in ['mg/dL', 'mmol/L']);
+    }
+
+    function isValidGlucose(data) {
+      return data.keys().hasAll(['userId', 'value', 'timestamp']) &&
+             data.userId is string &&
+             data.value is number &&
+             data.timestamp is timestamp &&
+             isValidStringLength(data, 'notes', 500);
+    }
+
+    function isValidMeal(data) {
+      return data.keys().hasAll(['userId', 'mealName', 'timestamp']) &&
+             data.userId is string &&
+             data.mealName is string && data.mealName.size() <= 100 &&
+             data.timestamp is timestamp &&
+             (!( 'mealCategory' in data ) || data.mealCategory in ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Other']) &&
+             (!( 'carbs' in data ) || (data.carbs is number && data.carbs >= 0)) &&
+             isValidStringLength(data, 'notes', 500);
+    }
+
+    function isValidMedication(data) {
+      return data.keys().hasAll(['userId', 'medicationName', 'dose', 'timestamp']) &&
+             data.userId is string &&
+             data.medicationName is string && data.medicationName.size() <= 100 &&
+             data.dose is string && data.dose.size() <= 60 &&
+             data.timestamp is timestamp &&
+             (!( 'medicationType' in data ) || data.medicationType is string) &&
+             (!( 'units' in data ) || data.units is number) &&
+             isValidStringLength(data, 'notes', 500);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) &&
+                      request.resource.data.uid == resource.data.uid; // UID immutable
+    }
+
+    match /glucose_readings/{readingId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && userIdMatchesAuth() && isValidGlucose(request.resource.data);
+      allow update: if isDocOwner() && userIdMatchesAuth() && isValidGlucose(request.resource.data) &&
+                      request.resource.data.userId == resource.data.userId;
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /meals/{mealId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && userIdMatchesAuth() && isValidMeal(request.resource.data);
+      allow update: if isDocOwner() && userIdMatchesAuth() && isValidMeal(request.resource.data) &&
+                      request.resource.data.userId == resource.data.userId;
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /medications/{logId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && userIdMatchesAuth() && isValidMedication(request.resource.data);
+      allow update: if isDocOwner() && userIdMatchesAuth() && isValidMedication(request.resource.data) &&
+                      request.resource.data.userId == resource.data.userId;
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
